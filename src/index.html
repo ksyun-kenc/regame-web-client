@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Regame">
+    <meta name="keywords" content="Regame, liuguang">
+    <title>Regame's Web Client</title>
+</head>
+
+<body>
+    <div>
+        <div id="login" style="width: 500px; margin: 0 auto;">
+            <h1 align="center">Regame's Web Client</h1>
+            <div class="meta-info">
+                <div class="column" style="margin:20px">
+                    <label>URL: </label>
+                    <input style="min-width: 24vw;" type="text" id="url-input" name="url" value="ws://localhost:8080" />
+                </div>
+                <div style="display: flex; margin: 5px">
+                    <div class="column">
+                        <div class="column">
+                            <label>Username: </label>
+                            <input type="text" id="username-input" name="username" value="UMU" />
+                        </div>
+                        <div class="column">
+                            <label>Password: </label>
+                            <input type="text" id="password-input" name="password" value="123456" />
+                        </div>
+                    </div>
+                    <button id="play-btn">Play</button>
+                </div>
+            </div>
+        </div>
+        <video width="100%" controls autoplay id="player"></video>
+    </div>
+    <style type="text/css">
+        .meta-info {
+            background: #f7f7f7;
+            border: 1px solid #9a9a9a;
+            margin-bottom: 10px;
+            padding: 10px;
+        }
+
+        .meta-info input {
+            padding: 5px;
+            outline: 0;
+        }
+
+        .column {
+            margin: 5px;
+        }
+
+        #play-btn {
+            background: #3498db;
+            color: #fff;
+            padding: 7px;
+            width: 8vw;
+            height: 6vw;
+            border: 1px solid #0880d0;
+            font-size: 15px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        #play-btn:hover {
+            background: #05568c;
+        }
+    </style>
+
+    <script>
+        window.onload = function () {
+            document.getElementById('login').style.display = 'block'
+            document.getElementById('player').style.display = 'none'
+            document.getElementById('play-btn').addEventListener('click', function (e) {
+                document.getElementById('login').style.display = 'none'
+                document.getElementById('player').style.display = 'block'
+                let username = document.getElementById('username-input').value || 'UMU'
+                let password = document.getElementById('password-input').value || '123456'
+                let url = document.getElementById('url-input').value || 'ws://localhost:8080'
+                let jmuxer = new JMuxer({
+                    node: 'player',
+                    mode: 'video',   //video,both,audio
+                    debug: true,
+                    //flushingTime: 0,
+                    onError: function (data) {
+                        console.log('Buffer error encountered', data)
+                    }
+                })
+
+                let ws = new WebSocket(url, ['webgame'])
+                ws.binaryType = 'arraybuffer'
+                ws.addEventListener('message', function (event) {
+                    let data = new Uint8Array(event.data)
+                    if (data.length > 2) {
+                        // 0-3 is length
+                        // 4 is ServerAction
+                        if (0 == data[4]) {    // kLoginResult
+                            console.log('Protocol version:', data[5])
+                            console.log('Error code:', data[6])
+                            console.log('Audeo codec:', data[7])
+                            console.log('Video codec:', data[8])
+                        } else if (5 == data[4]) { // kVideo
+                            jmuxer.feed({ video: data.slice(5) })
+                        } else if (7 == data[4]) {  // kResetVideo
+                        }
+                    }
+                })
+                let uint8array = new Uint8Array(72)
+                uint8array[5] = 0 // version
+                uint8array[39] = 0x06
+                for (let i = 0; i < username.length; ++i) {
+                    uint8array[6 + i] = username.charCodeAt(i)
+                }
+                for (let i = 0; i < password.length; ++i) {
+                    uint8array[40 + i] = password.charCodeAt(i)
+                }
+                ws.onopen = function () {
+                    return ws.send(uint8array)
+                }
+                ws.addEventListener('error', function (e) {
+                    console.log('Socket Error')
+                })
+            })
+
+        }
+    </script>
+    <script type="text/javascript" src="jmuxer.min.js"></script>
+</body>
+
+</html>

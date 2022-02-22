@@ -1,0 +1,14 @@
+{
+  "name": "regame-web-client",
+  "version": "0.1.4",
+  "description": "Regame's web client",
+  "main": "src/index.html",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ksyun-kenc/regame-web-client"
+  },
+  "author": "UMU618",
+  "dependencies": {
+    "jmuxer": "^2.0.3"
+  }
+}
