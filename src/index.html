@@ -9,19 +9,19 @@
 </head>
 
 <body>
-    <div>
+    <div id="main">
         <div id="login" style="width: 500px; margin: 0 auto;">
-            <h1 align="center">Regame's Web Client</h1>
+            <h1 align="center" style="color:white">CloudPlay's Web Client</h1>
             <div class="meta-info">
                 <div class="column" style="margin:20px">
                     <label>URL: </label>
-                    <input style="min-width: 24vw;" type="text" id="url-input" name="url" value="ws://localhost:8080" />
+                    <input style="min-width: 24vw;" type="text" id="url-input" name="url" value="ws://192.168.2.162:8080" />
                 </div>
                 <div style="display: flex; margin: 5px">
                     <div class="column">
                         <div class="column">
                             <label>Username: </label>
-                            <input type="text" id="username-input" name="username" value="UMU" />
+                            <input type="text" id="username-input" name="username" value="LI-J" />
                         </div>
                         <div class="column">
                             <label>Password: </label>
@@ -32,9 +32,23 @@
                 </div>
             </div>
         </div>
-        <video width="100%" controls autoplay id="player"></video>
+        <video width="100%" autoplay id="player"></video>
+        <audio width="50%" controls autoplay id="audioPlayer"></audio>
     </div>
     <style type="text/css">
+        #main, body{
+            margin: 0px;
+            padding: 0px;
+            height: 100%;
+            background: black;
+        }
+        #player{
+            width: 100%;
+            height: 100%;
+            object-fit:fill;
+            margin: 0px auto;
+        }
+
         .meta-info {
             background: #f7f7f7;
             border: 1px solid #9a9a9a;
@@ -68,28 +82,54 @@
             background: #05568c;
         }
     </style>
-
+    <script type="text/javascript" src="byte-buffer.min.js"></script>
+    <script type="text/javascript" src="input_emu.js"></script>
     <script>
+        let videoArr = []
+        let audioArr = []
+        let cachedNum = 60
+        let isCached = false
         window.onload = function () {
+            document.oncontextmenu = function(e){
+                return false;
+            }
+            
             document.getElementById('login').style.display = 'block'
             document.getElementById('player').style.display = 'none'
+            document.getElementById('audioPlayer').style.display = 'none'
             document.getElementById('play-btn').addEventListener('click', function (e) {
                 document.getElementById('login').style.display = 'none'
-                document.getElementById('player').style.display = 'block'
-                let username = document.getElementById('username-input').value || 'UMU'
+                var videoDom = document.getElementById('player')
+                videoDom.style.display = 'block'
+                VideoFill.SetOrigin(videoDom)
+                // document.getElementById('audioPlayer').style.display = 'block'
+                let username = document.getElementById('username-input').value || 'LI-J'
                 let password = document.getElementById('password-input').value || '123456'
                 let url = document.getElementById('url-input').value || 'ws://localhost:8080'
                 let jmuxer = new JMuxer({
                     node: 'player',
                     mode: 'video',   //video,both,audio
-                    debug: true,
-                    //flushingTime: 0,
+                    debug: false,
+                    flushingTime: 0,
+                    onError: function (data) {
+                        console.log('Buffer error encountered', data)
+                    }
+                })
+                let audioJmuxer = new JMuxer({
+                    node: 'audioPlayer',
+                    mode: 'audio',   //video,both,audio
+                    debug: false,
+                    flushingTime: 0,
                     onError: function (data) {
                         console.log('Buffer error encountered', data)
                     }
                 })
 
                 let ws = new WebSocket(url, ['webgame'])
+                let userApi = CreateUser(ws)
+
+                userApi.AddInputListener()
+
                 ws.binaryType = 'arraybuffer'
                 ws.addEventListener('message', function (event) {
                     let data = new Uint8Array(event.data)
@@ -101,27 +141,27 @@
                             console.log('Error code:', data[6])
                             console.log('Audeo codec:', data[7])
                             console.log('Video codec:', data[8])
+                            userApi.AddInputListener()
+                        } else if (4 == data[4]) { // kAudio        acc mode only 
+                            audioJmuxer.feed({ audio: data.slice(5) })
                         } else if (5 == data[4]) { // kVideo
                             jmuxer.feed({ video: data.slice(5) })
-                        } else if (7 == data[4]) {  // kResetVideo
+
+                            VideoFill.SetReal()
+                        }  else if (7 == data[4]) {  // kResetVideo
                         }
                     }
                 })
-                let uint8array = new Uint8Array(72)
-                uint8array[5] = 0 // version
-                uint8array[39] = 0x06
-                for (let i = 0; i < username.length; ++i) {
-                    uint8array[6 + i] = username.charCodeAt(i)
-                }
-                for (let i = 0; i < password.length; ++i) {
-                    uint8array[40 + i] = password.charCodeAt(i)
-                }
+                
                 ws.onopen = function () {
-                    return ws.send(uint8array)
+                    return userApi.DoLogin(username, password)
+                    // return ws.send(uint8array)
                 }
                 ws.addEventListener('error', function (e) {
                     console.log('Socket Error')
                 })
+
+
             })
 
         }
