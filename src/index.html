@@ -108,6 +108,12 @@
                     }
                 })
                 let uint8array = new Uint8Array(72)
+
+                let size = new DataView(new ArrayBuffer(4));
+                size.setUint32(0, uint8array.length - size.byteLength);
+                for (let i = 0; i < size.byteLength; ++i)
+                    uint8array[i] = size.getUint8(i);
+
                 uint8array[5] = 0 // version
                 uint8array[39] = 0x06
                 for (let i = 0; i < username.length; ++i) {
